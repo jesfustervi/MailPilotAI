@@ -1,6 +1,7 @@
 /**
  * ZOHO ADAPTER
- * Este script se ejecuta en el contexto de mail.zoho.com
+ * this script is running in the mail.zoho.com context
+ * it extracts email data from the opened email and sends it to the extension
  */
 
 // Type definitions for email data structure
@@ -22,36 +23,32 @@ interface EmailData {
     cc?: string;
 }
 
-console.log("🚀 MailMind: Zoho Adapter cargado y listo.");
+console.log("🚀 MailMind: Zoho Adapter loaded and ready.");
 
 /**
- * Extrae los datos del correo abierto en Zoho Mail
+ * Extracts data from the opened email in Zoho Mail
  * 
- * @returns {EmailData} Datos extraídos del email incluyendo asunto, thread de mensajes, destinatarios y metadatos
- * @throws {Error} Puede lanzar errores si las operaciones DOM fallan
+ * @returns {EmailData} Extracted email data including subject, message thread, recipients, and metadata    
+ * @throws {Error} May throw errors if DOM operations fail
  */
 const extractEmailData = (): EmailData => {
     // Specific selectors for Zoho Mail (may vary depending on the version)
-    const subject = document.querySelector('.zmLSub')?.textContent?.trim() || "Sin asunto";
+    const subject = document.querySelector('.zmLSub')?.textContent?.trim() || "No Subject";
 
-    // Extraer destinatarios (To y CC) si están disponibles
+    // Extract recipients (To and CC) if available
     const toElement = document.querySelector('.zm_msg_to, .zmTo');
     const to = toElement?.textContent?.trim();
-    
     const ccElement = document.querySelector('.zm_msg_cc, .zmCC');
     const cc = ccElement?.textContent?.trim();
 
-    // Zoho carga los mensajes en hilos. Buscamos todos los bloques de mensaje.
+    // Zoho loads messages in threads. We look for all message blocks.
     const messageBlocks = document.querySelectorAll('.zm_msg_item');
-    
-    console.log(`📩 Encontrados ${messageBlocks.length} bloques de mensaje en el hilo`);
-    
+    console.log(`📩 Found ${messageBlocks.length} message blocks in the thread`);
     const thread: EmailMessage[] = Array.from(messageBlocks).map((msg, index) => {
-        // Extraer información del remitente
+        // Extract sender information
         const senderElement = msg.querySelector('.zm_msg_from');
-        const sender = senderElement?.textContent?.trim() || "Desconocido";
-        
-        // Intentar extraer email del remitente
+        const sender = senderElement?.textContent?.trim() || "Unknown";
+        // Attempt to extract sender email
         let senderEmail: string | undefined;
         const titleAttr = senderElement?.getAttribute('title');
         if (titleAttr) {
@@ -62,20 +59,20 @@ const extractEmailData = (): EmailData => {
                 senderEmail = emailMatch[1];
             }
         }
-        
-        // Extraer el cuerpo del mensaje
+
+        // Extract the body of the message
         const bodyElement = msg.querySelector('.zm_msg_txt');
         const body = bodyElement?.textContent?.trim() || "";
-        
-        // Extraer la fecha/hora del mensaje
+
+        // Extract the date/time of the message
         const dateElement = msg.querySelector('.zm_msg_date, .zmMsgDate, time');
         const date = dateElement?.textContent?.trim();
-        
-        // Intentar extraer timestamp numérico o convertir desde datetime
+
+        // Attempt to extract numeric timestamp or convert from datetime
         let timestamp: number | undefined;
         const timestampAttr = dateElement?.getAttribute('data-timestamp');
         const datetimeAttr = dateElement?.getAttribute('datetime');
-        
+
         if (timestampAttr) {
             const parsed = parseInt(timestampAttr, 10);
             if (!isNaN(parsed)) {
@@ -87,25 +84,25 @@ const extractEmailData = (): EmailData => {
                 timestamp = dateObj.getTime();
             }
         }
-        
-        // Extraer ID del mensaje si está disponible
-        const messageId = msg.getAttribute('data-msgid') || 
-                         msg.getAttribute('id') || 
-                         `msg_${index}`;
-        
+
+        // Extract message ID if available
+        const messageId = msg.getAttribute('data-msgid') ||
+            msg.getAttribute('id') ||
+            `msg_${index}`;
+
         console.log(`  Mensaje ${index + 1}: ${sender} - ${body.substring(0, 50)}...`);
-        
-        return { 
-            sender, 
+
+        return {
+            sender,
             senderEmail,
             body,
             date,
             timestamp,
             messageId
         };
-    }).filter(m => m.body.length > 0); // Filtrar mensajes vacíos
+    }).filter(m => m.body.length > 0); // Filter out empty messages
 
-    console.log(`✅ Extraídos ${thread.length} mensajes válidos del hilo`);
+    console.log(`✅ Extracted ${thread.length} valid messages from the thread`);
 
     return {
         subject,
@@ -117,31 +114,31 @@ const extractEmailData = (): EmailData => {
     };
 };
 
-// Escuchar mensajes desde la Extensión (SidePanel o Popup)
+// Listen for messages from the Extension (SidePanel or Popup)
 chrome.runtime.onMessage.addListener((request, __, sendResponse) => {
     if (request.action === "READ_ZOHO_EMAIL") {
         try {
             const emailData = extractEmailData();
-            console.log("📧 Datos extraídos de Zoho:", emailData);
-            
-            // Validar que tenemos al menos un asunto o contenido
+            console.log("📧 Extracted data from Zoho:", emailData);
+
+            // Validate that we have at least a subject or content
             if (!emailData.subject && emailData.thread.length === 0) {
-                console.warn("⚠️ No se encontró contenido de email en la página");
-                sendResponse({ 
-                    error: "No se encontró contenido de email en la página actual",
-                    data: null 
+                console.warn("⚠️ No email content found on the page");
+                sendResponse({
+                    error: "No email content found on the current page",
+                    data: null
                 });
             } else {
-                sendResponse({ 
+                sendResponse({
                     error: null,
-                    data: emailData 
+                    data: emailData
                 });
             }
         } catch (error) {
-            console.error("❌ Error al extraer datos del email:", error);
-            sendResponse({ 
-                error: error instanceof Error ? error.message : "Error desconocido",
-                data: null 
+            console.error("❌ Error extracting email data:", error);
+            sendResponse({
+                error: error instanceof Error ? error.message : "Unknown error",
+                data: null
             });
         }
     }
