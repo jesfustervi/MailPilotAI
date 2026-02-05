@@ -32,7 +32,7 @@ jobs:
         run: npm ci
 
       - name: 🔍 Lint & Typecheck
-        run: npx turbo run lint type-check
+        run: npx turbo run lint check-types
 
       - name: 📦 Build Extension
         run: npx turbo run build --filter=extension
