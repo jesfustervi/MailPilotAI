@@ -24,7 +24,12 @@ interface EmailData {
 
 console.log("🚀 MailMind: Zoho Adapter cargado y listo.");
 
-// Función para extraer los datos del correo abierto
+/**
+ * Extrae los datos del correo abierto en Zoho Mail
+ * 
+ * @returns {EmailData} Datos extraídos del email incluyendo asunto, thread de mensajes, destinatarios y metadatos
+ * @throws {Error} Puede lanzar errores si las operaciones DOM fallan
+ */
 const extractEmailData = (): EmailData => {
     // Specific selectors for Zoho Mail (may vary depending on the version)
     const subject = document.querySelector('.zmLSub')?.textContent?.trim() || "Sin asunto";
@@ -47,11 +52,16 @@ const extractEmailData = (): EmailData => {
         const sender = senderElement?.textContent?.trim() || "Desconocido";
         
         // Intentar extraer email del remitente
-        const senderEmailMatch = senderElement?.getAttribute('title') || 
-                                 senderElement?.textContent?.match(/<([^>]+)>/);
-        const senderEmail = senderEmailMatch ? 
-            (typeof senderEmailMatch === 'string' ? senderEmailMatch : senderEmailMatch[1]) : 
-            undefined;
+        let senderEmail: string | undefined;
+        const titleAttr = senderElement?.getAttribute('title');
+        if (titleAttr) {
+            senderEmail = titleAttr;
+        } else {
+            const emailMatch = senderElement?.textContent?.match(/<([^>]+)>/);
+            if (emailMatch) {
+                senderEmail = emailMatch[1];
+            }
+        }
         
         // Extraer el cuerpo del mensaje
         const bodyElement = msg.querySelector('.zm_msg_txt');
@@ -60,8 +70,23 @@ const extractEmailData = (): EmailData => {
         // Extraer la fecha/hora del mensaje
         const dateElement = msg.querySelector('.zm_msg_date, .zmMsgDate, time');
         const date = dateElement?.textContent?.trim();
-        const timestamp = dateElement?.getAttribute('data-timestamp') || 
-                         dateElement?.getAttribute('datetime');
+        
+        // Intentar extraer timestamp numérico o convertir desde datetime
+        let timestamp: number | undefined;
+        const timestampAttr = dateElement?.getAttribute('data-timestamp');
+        const datetimeAttr = dateElement?.getAttribute('datetime');
+        
+        if (timestampAttr) {
+            const parsed = parseInt(timestampAttr, 10);
+            if (!isNaN(parsed)) {
+                timestamp = parsed;
+            }
+        } else if (datetimeAttr) {
+            const dateObj = new Date(datetimeAttr);
+            if (!isNaN(dateObj.getTime())) {
+                timestamp = dateObj.getTime();
+            }
+        }
         
         // Extraer ID del mensaje si está disponible
         const messageId = msg.getAttribute('data-msgid') || 
@@ -75,7 +100,7 @@ const extractEmailData = (): EmailData => {
             senderEmail,
             body,
             date,
-            timestamp: timestamp ? parseInt(timestamp) : undefined,
+            timestamp,
             messageId
         };
     }).filter(m => m.body.length > 0); // Filtrar mensajes vacíos
