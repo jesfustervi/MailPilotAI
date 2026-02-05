@@ -3,12 +3,14 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
+    "type-check": "tsc --noEmit --build tsconfig.json",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "@types/chrome": "^0.1.36",
     "autoprefixer": "^10.4.24",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
