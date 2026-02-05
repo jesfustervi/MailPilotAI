@@ -1,0 +1,92 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["develop", "staging", "main"]
+  pull_request:
+    branches: ["develop", "staging", "main"]
+
+jobs:
+  build:
+    name: 🏗️ Build & Check
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-path: ${{ steps.zip.outputs.path }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: 🔍 Linting & Typecheck
+        run: npx turbo run lint type-check
+
+      - name: 📦 Build Extension
+        run: npx turbo run build --filter=extension
+
+      - name: Zip Extension Artifact
+        id: zip
+        run: |
+          cd apps/extension/dist
+          zip -r ../../../mailmind-extension.zip .
+          echo "path=mailmind-extension.zip" >> $GITHUB_OUTPUT
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mailmind-extension-build
+          path: mailmind-extension.zip
+          retention-days: 5
+
+  deploy-dev:
+    name: 🚀 Deploy Development
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mailmind-extension-build
+      - name: Deploy to Development
+        run: |
+          echo "Aquí iría el script para subir a Development"
+
+  deploy-staging:
+    name: 🚀 Deploy Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/staging'
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mailmind-extension-build
+      - name: Deploy to Staging
+        run: |
+          echo "Aquí iría el script para subir a Staging"
+
+  deploy-prod:
+    name: 🚀 Deploy Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mailmind-extension-build
+      - name: Deploy to Chrome Web Store
+        env:
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          echo "Pending to deploy to Chrome Web Store"
